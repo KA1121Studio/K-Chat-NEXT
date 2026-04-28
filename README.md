@@ -1318,6 +1318,6 @@ document.getElementById('showLogin').addEventListener('click', () => {
 
 ---
 
-### 以上、「最強すぎるWebチャットアプリ」の完成です！
+### 以上、「Webチャットアプリ」の完成です！
 
 ご質問やカスタマイズのご依頼もお気軽にどうぞ。
