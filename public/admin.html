@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>管理画面</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>管理者画面</h1>
+  <div id="loginSection">
+    <input id="adminEmail" placeholder="メール" />
+    <input id="adminPassword" type="password" placeholder="パスワード" />
+    <button onclick="adminLogin()">ログイン</button>
+  </div>
+
+  <div id="adminPanel" style="display:none;">
+    <h2>ルーム管理</h2>
+    <table border="1" id="roomTable"></table>
+    <h3>お知らせ編集</h3>
+    <textarea id="noticeText" rows="4" cols="50"></textarea>
+    <button onclick="updateNotice()">保存</button>
+    <button onclick="loadNotice()">読み込み</button>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let token = '';
+
+    async function adminLogin() {
+      const email = document.getElementById('adminEmail').value;
+      const password = document.getElementById('adminPassword').value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return alert('ログイン失敗');
+      token = data.session.access_token;
+      // adminロール確認
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
+      if (profile.role !== 'admin') {
+        alert('管理者権限がありません');
+        await supabase.auth.signOut();
+        return;
+      }
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('adminPanel').style.display = 'block';
+      loadAdminRooms();
+      loadNotice();
+    }
+
+    async function loadAdminRooms() {
+      const res = await fetch('/admin/rooms', { headers: { Authorization: `Bearer ${token}` } });
+      const rooms = await res.json();
+      const tbody = document.getElementById('roomTable');
+      tbody.innerHTML = '<tr><th>ID</th><th>名前</th><th>作成者</th><th>操作</th></tr>';
+      rooms.forEach(r => {
+        const row = tbody.insertRow();
+        row.insertCell().textContent = r.id;
+        row.insertCell().textContent = r.name;
+        row.insertCell().textContent = r.creator || '-';
+        const delCell = row.insertCell();
+        const btn = document.createElement('button');
+        btn.textContent = '削除';
+        btn.onclick = () => deleteRoom(r.id);
+        delCell.appendChild(btn);
+      });
+    }
+
+    async function deleteRoom(id) {
+      if (!confirm('本当に削除しますか？')) return;
+      await fetch(`/admin/rooms/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      loadAdminRooms();
+    }
+
+    async function loadNotice() {
+      const res = await fetch('/notice');
+      const data = await res.json();
+      document.getElementById('noticeText').value = data.content || '';
+    }
+
+    async function updateNotice() {
+      const content = document.getElementById('noticeText').value;
+      await fetch('/admin/notice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content })
+      });
+      alert('保存しました');
+    }
+  </script>
+</body>
+</html>
